@@ -3,10 +3,11 @@
 1. 在自己的mac电脑上下载[doubleH3lix-RC8.ipa](https://doubleh3lix.tihmstar.net)并保存
 2.下载[Cydia Impactor](http://www.cydiaimpactor.com/)当前的版本是Impactor_0.9.51，将其安装在mac上。
 3. 数据线连上自己的越狱手机，打开Impactor,会弹出如下弹窗
-![impactor](/Users/richard/Desktop/files/impactor.png)
+![impactor](/Users/richard/Documents/files/impactor.png)
 
 4. 找到第1步下载的doubleH3lix-RC8.ipa安装包，单指按住拖入弹窗中间会，会出现另一个界面
-![appID](/Users/richard/Desktop/files/your_appId.png)
+![appID](/Users/richard/Documents/files/your_appId.png)
+
 __注意__:
 这个appid必须去掉双重验证，否则是无法通过Impactor安装ipa到越狱手机上的，安装过程中弹出的错误不用管。
 5. 安装完成越狱手机桌面会发现一个叫doubleH3lix,点击启动App，然后点击"run uicache"按钮，等待手机越狱，重启后就越狱成功了。
@@ -17,7 +18,7 @@ __注意__:
 ##10.3.2的各种越狱异常
 ###DPKG_LOCKED错误
 10.3.2的系统上面这个错误，在已安装软件后就会出现令人头疼DPKG_LOCKED错误 
-![cydia](/Users/richard/Desktop/files/IMG_0001.png)
+![cydia](/Users/richard/Documents/files/your_appId.png)
 解决办法：
 注册Dropbox帐号下载lib.zip并解压,也可以从我的[网盘](https://pan.baidu.com/s/19NbDtPlWWBMCruc7hdsvzg)下载
 打开ifunbox，将上一步解压后的lib文件夹拖入Books文件夹中
@@ -140,4 +141,76 @@ chomd 777 scp
 rsync -avze 'ssh -p 2222' root@localhost:/tmp/tmpfile
 rsync -avze 'ssh -p 2222' ./utils.cy root@localhost:var/root/
 ```
+5. Cycript:在cydia下载
+
+##查看网易云
+首先分清楚两个目录
+应用的可执行文件目录（app在磁盘存放的目录）：/var/containers/Bundle/Application/AC015766-DD2A-425A-8D16-154092572CB6/neteasemusic.app/neteasemusic
+
+应用的沙河用户目录：/var/mobile/Containers/Data/Application/1B85CC81-74F3-4866-8B88-EFA74AD4DF57
+经过仔细查找发现下载音乐的存储目录是：
+/var/mobile/Containers/Data/Application/1B85CC81-74F3-4866-8B88-EFA74AD4DF57/Documents/UserData/Download/done
+
+获取BundleId的命令和编写的代码分别如下：
+```
+//输入
+cat /var/containers/Bundle/Application/5F03DE15-ED4C-4C2A-9F0E-35226DED510F/QQMusic.app/Info.plist | grep CFBundleIdentifier -A 1
+//输出：
+    <key>CFBundleIdentifier</key>
+    <string>com.tencent.QQMusic</string>
+```
+
+这次打开的是QQ音乐获取应用的沙河目录，这里获取的沙河目录
+/var/mobile/Containers/Data/Application/91A0CEBF-8C91-4900-A74B-C92952C35261/Documents
+
+将dylib复制到Documents目录下
+1.先dumpdecrypted.dylib通过签名，cd到dumpdecrypted.dylib所在目录下
+ldid -S dumpdecrypted.dylib
+2.使用scp命令把生成的dumpdecrypted.dylib文件复制到Documents目录下，在电脑终端执行，具体如下。
+```
+scp -p 2222 ~/Documents/Jailbreak/dumpdecrypted.dylib root@192.168.199.106:/var/mobile/Containers/Data/Application/91A0CEBF-8C91-4900-A74B-C92952C35261/Documents
+```
+解密，登录到手机终端，执行如下命令
+```
+DYLD_INSERT_LIBRARIES=dumpdecrypted.dylib /var/containers/Bundle/Application/5F03DE15-ED4C-4C2A-9F0E-35226DED510F/QQMusic.app/QQMusic
+
+Class BeaconNetFlowRecorder is implemented in both /var/containers/Bundle/Application/5F03DE15-ED4C-4C2A-9F0E-35226DED510F/QQMusic.app/QQMusic (0x103ceb358) and /var/containers/Bundle/Application/5F03DE15-ED4C-4C2A-9F0E-35226DED510F/QQMusic.app/QQMusic (0x103ceb358). One of the two will be used. Which one is undefined.
+mach-o decryption dumper
+
+DISCLAIMER: This tool is only meant for security research purposes, not for application crackers.
+
+[+] detected 64bit ARM binary in memory.
+[+] offset to cryptid found: @0x10007ce28(from 0x10007c000) = e28
+[+] Found encrypted data at address 00004000 of length 54280192 bytes - type 1.
+[+] Opening /private/var/containers/Bundle/Application/5F03DE15-ED4C-4C2A-9F0E-35226DED510F/QQMusic.app/QQMusic for reading.
+[+] Reading header
+[+] Detecting header type
+[+] Executable is a plain MACH-O image
+[+] Opening QQMusic.decrypted for writing.
+[+] Copying the not encrypted start of the file
+[+] Dumping the decrypted data into the file
+[+] Copying the not encrypted remainder of the file
+[+] Setting the LC_ENCRYPTION_INFO->cryptid to 0 at offset e28
+[+] Closing original file
+[+] Closing dump file
+
+```
+解密之后会在当前目录下面生成TargetApp.decryted文件。赶紧的把榻复制到Mac中备用吧，如果将动态库复制一个非沙河目录下，例如~/Desktop/,运行后就会报如下错误。
+```
+scp -P 2222 root@localhost:/var/mobile/Containers/Data/Application/91A0CEBF-8C91-4900-A74B-C92952C35261/Documents/QQMusic.decrypted ~/Desktop
+```
+
+然后，使用如下命令查看加密标识。
+otool -l TargetApp.decrypted | grep crypt
+
+```
+otool -l QQMusic.decrypted | grep crypt                   
+QQMusic.decrypted:
+     cryptoff 16384
+    cryptsize 54280192
+      cryptid 0
+```   
+  https://www.jianshu.com/p/cb2c2c65bd0f?utm_campaign=maleskine&utm_content=note&utm_medium=seo_notes&utm_source=recommendation
+https://www.jianshu.com/p/57115e8cf06e
+
 
